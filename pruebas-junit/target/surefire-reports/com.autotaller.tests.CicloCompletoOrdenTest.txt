@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.autotaller.tests.CicloCompletoOrdenTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 61.22 s -- in com.autotaller.tests.CicloCompletoOrdenTest

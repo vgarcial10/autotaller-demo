@@ -1,0 +1,4 @@
+com\autotaller\tests\CicloCompletoOrdenTest.class
+com\autotaller\tests\DeduplicacionClienteVehiculoTest.class
+com\autotaller\tests\ConsultaOrdenWebhookTest.class
+com\autotaller\tests\IngestaWebhookTest.class

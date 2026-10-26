@@ -1,0 +1,325 @@
+{
+  "name": "AutoTaller - 02 Procesamiento de Ordenes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        208
+      ],
+      "id": "bcaba708-7f85-4007-b206-5bc4817c4d97",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ordenes WHERE estado = 'recibido';",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -80,
+        208
+      ],
+      "id": "e809544b-125f-4fe4-b00e-b11497aa47db",
+      "name": "Leer ordenes pendientes",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.problema.toLowerCase() }}",
+              "rightValue": "enciende",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "id": "abf88b4a-8a9f-4d03-8c72-204d85690fa7"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Es urgente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        128,
+        208
+      ],
+      "id": "a752eba3-5b87-480c-8b7f-4bd822742c4f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "prioridad",
+              "type": "string",
+              "value": "alta"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "Prioridad alta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        96
+      ],
+      "id": "18fef94e-ac46-4ddc-958d-381fb0cde7ba"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "prioridad",
+              "type": "string",
+              "value": "normal"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "Prioridad normal",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        304
+      ],
+      "id": "14f02e52-4ae9-4482-a6c8-c3e29e0e2df2"
+    },
+    {
+      "parameters": {},
+      "name": "Unir prioridades",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        624,
+        208
+      ],
+      "id": "88f58afa-9414-4b98-b068-93b90df81ce5"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ordenes SET estado = 'asignado', prioridad = '{{ $json.prioridad }}' WHERE id = {{ $json.id }} RETURNING *;",
+        "options": {}
+      },
+      "name": "Actualizar orden",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        880,
+        208
+      ],
+      "id": "15b2edec-f660-49d3-b282-597ad3b1691b",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('procesamiento-ordenes', 'exito', 'Orden procesada y asignada', $1);",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Registrar en bitacora 2",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1136,
+        192
+      ],
+      "id": "d99528e8-c584-4637-85ca-6636b21a2e66",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('procesamiento-ordenes', 'error', 'Fallo al actualizar orden', $1);",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1280,
+        416
+      ],
+      "id": "a553efb2-2b4c-4970-94e1-45f28a68a778",
+      "name": "Registrar error en bitacora",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Leer ordenes pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es urgente?": {
+      "main": [
+        [
+          {
+            "node": "Prioridad alta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prioridad normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prioridad alta": {
+      "main": [
+        [
+          {
+            "node": "Unir prioridades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prioridad normal": {
+      "main": [
+        [
+          {
+            "node": "Unir prioridades",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Unir prioridades": {
+      "main": [
+        [
+          {
+            "node": "Actualizar orden",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar orden": {
+      "main": [
+        [
+          {
+            "node": "Registrar en bitacora 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar error en bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer ordenes pendientes": {
+      "main": [
+        [
+          {
+            "node": "Es urgente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar en bitacora 2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Registrar error en bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "1e9300aa-e947-4c15-995e-6a3e41b5386b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e8a9a2e001bfeda61adfb2563c0b4f8e2f0b1dd42f745608238ee8cdd8c8adb"
+  },
+  "nodeGroups": [],
+  "id": "HWQAF4rTKCFKiLH6",
+  "tags": []
+}

@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autotaller_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - autotaller_pgdata:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: autotaller_n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Credenciales de n8n (nunca en texto plano en el código)
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD}
+      # Conexión a la base de datos de la aplicación (no la interna de n8n)
+      DB_APP_HOST: postgres
+      DB_APP_PORT: 5432
+      DB_APP_NAME: ${POSTGRES_DB}
+      DB_APP_USER: ${POSTGRES_USER}
+      DB_APP_PASSWORD: ${POSTGRES_PASSWORD}
+      GENERIC_TIMEZONE: "America/Guatemala"
+    ports:
+      - "5678:5678"
+    volumes:
+      - autotaller_n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows
+
+volumes:
+  autotaller_pgdata:
+  autotaller_n8n_data:

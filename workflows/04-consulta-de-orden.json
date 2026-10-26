@@ -1,0 +1,235 @@
+{
+  "name": "AutoTaller - 04 Consulta de Orden",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consultar-orden",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Consulta de Orden",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        48
+      ],
+      "id": "41c343a9-1486-4e61-835d-aef65eb25820",
+      "webhookId": "b61fbaa2-8666-463d-a69c-629f58bf05c1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ordenes WHERE codigo_acceso = $1;",
+        "options": {
+          "queryReplacement": "={{ $json.body.codigo_acceso }}"
+        }
+      },
+      "name": "Buscar orden por codigo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -592,
+        48
+      ],
+      "id": "fd0ebcca-3039-406d-a2ec-b0daa7f1ebe0",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Codigo valido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        48
+      ],
+      "id": "e95222fe-6636-4fe7-87d1-fcea25cb0499"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "name": "Responder orden encontrada",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -64
+      ],
+      "id": "8f42c3c8-4bd7-4438-b262-3d4d7a8a54c1"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": \"Codigo de acceso invalido o no encontrado\" } }}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "name": "Responder acceso denegado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        144
+      ],
+      "id": "66792cca-65bd-45e5-91fa-1c348cc4d440"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('consulta-orden', 'exito', 'Consulta autorizada', $1);",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Registrar consulta exitosa",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        160,
+        -64
+      ],
+      "id": "3442b965-99ae-4a10-8fc3-f04f93c032b1",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('consulta-orden', 'error', 'Intento de acceso con codigo invalido', $1);",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($('Webhook - Consulta de Orden').first().json.body) }}"
+        }
+      },
+      "name": "Registrar intento invalido",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        160,
+        144
+      ],
+      "id": "9052c84d-61e4-4b98-8ee9-8e67e746a07d",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Consulta de Orden": {
+      "main": [
+        [
+          {
+            "node": "Buscar orden por codigo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar orden por codigo": {
+      "main": [
+        [
+          {
+            "node": "Codigo valido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Codigo valido?": {
+      "main": [
+        [
+          {
+            "node": "Responder orden encontrada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder acceso denegado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder orden encontrada": {
+      "main": [
+        [
+          {
+            "node": "Registrar consulta exitosa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder acceso denegado": {
+      "main": [
+        [
+          {
+            "node": "Registrar intento invalido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "cc37b20a-fc0a-4f30-bd9a-abe7b20d6674",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e8a9a2e001bfeda61adfb2563c0b4f8e2f0b1dd42f745608238ee8cdd8c8adb"
+  },
+  "nodeGroups": [],
+  "id": "ORokyGXWWGZK0r0H",
+  "tags": []
+}

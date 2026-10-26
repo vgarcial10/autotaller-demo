@@ -1,0 +1,13 @@
+com\autotaller\db\Orden.class
+com\autotaller\gui\DemoApp$4.class
+com\autotaller\gui\DemoApp.class
+com\autotaller\gui\DemoApp$3.class
+com\autotaller\util\EnvConfig.class
+com\autotaller\db\OrdenesRepository.class
+com\autotaller\gui\DemoApp$2.class
+com\autotaller\gui\DemoApp$RenderizadorEstado.class
+com\autotaller\gui\DemoApp$SeguimientoWorker.class
+com\autotaller\client\AutoTallerClient.class
+com\autotaller\db\OrdenesRepository$ClienteVehiculoIds.class
+com\autotaller\gui\DemoApp$1.class
+com\autotaller\client\AutoTallerClient$RespuestaApi.class

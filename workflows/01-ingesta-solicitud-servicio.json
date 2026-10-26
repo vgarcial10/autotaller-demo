@@ -1,0 +1,399 @@
+{
+  "name": "AutoTaller - 01 Ingesta de Solicitud de Servicio",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "solicitud-servicio",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7ad47c17-e209-45b4-ae6f-32052d9f61f4",
+      "name": "Webhook - Solicitud de Servicio",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-656, 192],
+      "webhookId": "solicitud-servicio"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\n\nconst nombre = body?.cliente?.nombre;\nconst telefono = body?.cliente?.telefono;\nconst placa = body?.vehiculo?.placa;\nconst problema = body?.problema;\n\nif (!nombre || !telefono || !placa || !problema) {\n  return [{\n    json: {\n      valid: false,\n      error: 'Faltan datos obligatorios: nombre, telefono, placa o problema.',\n      payload_recibido: body\n    }\n  }];\n}\n\nfunction generarCodigo(length = 6) {\n  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\n  let code = '';\n  for (let i = 0; i < length; i++) {\n    code += chars[Math.floor(Math.random() * chars.length)];\n  }\n  return code;\n}\n\nreturn [{\n  json: {\n    valid: true,\n    cliente_nombre: nombre,\n    cliente_telefono: telefono,\n    vehiculo_placa: placa,\n    vehiculo_marca: body?.vehiculo?.marca || null,\n    vehiculo_modelo: body?.vehiculo?.modelo || null,\n    problema,\n    codigo_acceso: generarCodigo(),\n    payload_recibido: body\n  }\n}];"
+      },
+      "id": "b01f67ff-3649-4524-870a-434dea205278",
+      "name": "Validar solicitud",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-448, 192]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ($1, $2, $3, $4)",
+        "options": {
+          "queryReplacement": "={{ 'ingesta-solicitud-servicio' }},{{ $json.valid ? 'exito' : 'error' }},{{ $json.valid ? 'Solicitud valida recibida' : $json.error }},{{ JSON.stringify($json.payload_recibido) }}"
+        }
+      },
+      "id": "a332fdc7-ef20-4b39-913d-eab5e62bf51f",
+      "name": "Registrar en bitacora",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [-224, 368],
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e4fe01a0-e095-4d89-8282-a60305f857db",
+      "name": "Es valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [-224, 80]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id AS cliente_id FROM clientes WHERE telefono = $1 LIMIT 1",
+        "options": {
+          "queryReplacement": "={{ $('Validar solicitud').item.json.cliente_telefono }}"
+        }
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000001",
+      "name": "Buscar cliente existente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [0, -120],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-cliente-existe",
+              "leftValue": "={{ $json.cliente_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000002",
+      "name": "Cliente existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [224, -120]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO clientes (nombre, telefono) VALUES ($1, $2) RETURNING id AS cliente_id",
+        "options": {
+          "queryReplacement": "={{ $('Validar solicitud').item.json.cliente_nombre }},{{ $('Validar solicitud').item.json.cliente_telefono }}"
+        }
+      },
+      "id": "1645193f-4b0a-4df2-8bae-589ec171e567",
+      "name": "Insertar cliente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [448, 40],
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000003",
+      "name": "Cliente resuelto",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [672, -120]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id AS vehiculo_id FROM vehiculos WHERE placa = $1 LIMIT 1",
+        "options": {
+          "queryReplacement": "={{ $('Validar solicitud').item.json.vehiculo_placa }}"
+        }
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000004",
+      "name": "Buscar vehiculo existente",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [896, -120],
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-vehiculo-existe",
+              "leftValue": "={{ $json.vehiculo_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000005",
+      "name": "Vehiculo existe?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, -120]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO vehiculos (placa, marca, modelo, cliente_id) VALUES ($1, $2, $3, $4) RETURNING id AS vehiculo_id",
+        "options": {
+          "queryReplacement": "={{ $('Validar solicitud').item.json.vehiculo_placa }},{{ $('Validar solicitud').item.json.vehiculo_marca }},{{ $('Validar solicitud').item.json.vehiculo_modelo }},{{ $('Cliente resuelto').item.json.cliente_id }}"
+        }
+      },
+      "id": "b19a7603-327f-4619-8837-dd10fea78d29",
+      "name": "Insertar vehiculo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1344, 40],
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": []
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "c1b2a3d4-1111-4aaa-9000-000000000006",
+      "name": "Vehiculo resuelto",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1568, -120]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO ordenes (cliente_id, vehiculo_id, problema, estado, codigo_acceso) VALUES ($1, $2, $3, 'recibido', $4) RETURNING id, codigo_acceso",
+        "options": {
+          "queryReplacement": "={{ $('Cliente resuelto').item.json.cliente_id }},{{ $('Vehiculo resuelto').item.json.vehiculo_id }},{{ $('Validar solicitud').item.json.problema }},{{ $('Validar solicitud').item.json.codigo_acceso }}"
+        }
+      },
+      "id": "3ab52d08-2f0f-4404-b1d3-a8f5d1c5036f",
+      "name": "Insertar orden",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1792, -120],
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"mensaje\": \"Solicitud recibida correctamente\", \"orden_id\": $json.id, \"codigo_acceso\": $json.codigo_acceso } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "ded82eba-82b9-411b-9f70-c1dc5cb2f5e8",
+      "name": "Responder exito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2016, -120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"error\": $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "f10a11bc-91f9-48b6-ad44-f5a6bf109cf4",
+      "name": "Responder error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [0, 192]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Solicitud de Servicio": {
+      "main": [
+        [
+          { "node": "Validar solicitud", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Validar solicitud": {
+      "main": [
+        [
+          { "node": "Es valida?", "type": "main", "index": 0 },
+          { "node": "Registrar en bitacora", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Es valida?": {
+      "main": [
+        [
+          { "node": "Buscar cliente existente", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Responder error", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Buscar cliente existente": {
+      "main": [
+        [
+          { "node": "Cliente existe?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Cliente existe?": {
+      "main": [
+        [
+          { "node": "Cliente resuelto", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Insertar cliente", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Insertar cliente": {
+      "main": [
+        [
+          { "node": "Cliente resuelto", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Cliente resuelto": {
+      "main": [
+        [
+          { "node": "Buscar vehiculo existente", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Buscar vehiculo existente": {
+      "main": [
+        [
+          { "node": "Vehiculo existe?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Vehiculo existe?": {
+      "main": [
+        [
+          { "node": "Vehiculo resuelto", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Insertar vehiculo", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Insertar vehiculo": {
+      "main": [
+        [
+          { "node": "Vehiculo resuelto", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Vehiculo resuelto": {
+      "main": [
+        [
+          { "node": "Insertar orden", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Insertar orden": {
+      "main": [
+        [
+          { "node": "Responder exito", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e8a9a2e001bfeda61adfb2563c0b4f8e2f0b1dd42f745608238ee8cdd8c8adb"
+  }
+}

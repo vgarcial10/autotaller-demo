@@ -1,0 +1,218 @@
+{
+  "name": "AutoTaller - 03 Notificacion de Ordenes",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -208,
+        -64
+      ],
+      "id": "48034ffb-9f0f-4c06-a036-7890db531dab"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM ordenes WHERE estado = 'asignado';",
+        "options": {}
+      },
+      "name": "Leer ordenes asignadas",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        48,
+        -64
+      ],
+      "id": "9f9e8415-d320-41b0-97df-54cd26032042",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "mensaje",
+              "type": "string",
+              "value": "={{ 'Estimado cliente, su orden #' + $json.id + ' fue asignada con prioridad ' + $json.prioridad + '.' }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "name": "Armar mensaje",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        -64
+      ],
+      "id": "0ae03ab5-e1d7-481a-9933-286cf0af0997"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE ordenes SET estado = 'notificado' WHERE id = {{ $json.id }} RETURNING *;",
+        "options": {}
+      },
+      "name": "Actualizar estado notificado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        544,
+        -64
+      ],
+      "id": "64da944f-8c64-45ce-8013-ad76de0f9dda",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('notificacion-ordenes', 'exito', 'Orden notificada al cliente', $1);",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json) }}"
+        }
+      },
+      "name": "Registrar en bitacora 3",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        800,
+        -80
+      ],
+      "id": "b82a97e4-5469-496c-a41e-c2d3a8d68d56",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO bitacora (workflow, resultado, detalle, payload_recibido) VALUES ('notificacion-ordenes', 'error', 'Fallo al notificar orden', $1);",
+        "options": {
+          "queryReplacement": "=={{ JSON.stringify($json) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        944,
+        96
+      ],
+      "id": "15b0d7ba-9c9e-4e02-9893-07d74fc9adf8",
+      "name": "Registrar error en bitacora",
+      "credentials": {
+        "postgres": {
+          "id": "4y9iT4JU7nOczgGI",
+          "name": "AutoTaller Postgres"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Leer ordenes asignadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer ordenes asignadas": {
+      "main": [
+        [
+          {
+            "node": "Armar mensaje",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar mensaje": {
+      "main": [
+        [
+          {
+            "node": "Actualizar estado notificado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar estado notificado": {
+      "main": [
+        [
+          {
+            "node": "Registrar en bitacora 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar error en bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar en bitacora 3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Registrar error en bitacora",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "e682804e-fcba-4d55-b545-e177489a95a3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9e8a9a2e001bfeda61adfb2563c0b4f8e2f0b1dd42f745608238ee8cdd8c8adb"
+  },
+  "nodeGroups": [],
+  "id": "Ja9x90qVXzDueDVX",
+  "tags": []
+}
